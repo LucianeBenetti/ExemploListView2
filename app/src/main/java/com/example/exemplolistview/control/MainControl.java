@@ -11,8 +11,11 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.example.exemplolistview.R;
+import com.example.exemplolistview.dao.db.EstadoDao;
 import com.example.exemplolistview.model.Estado;
+import com.j256.ormlite.dao.Dao;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -27,9 +30,11 @@ public class MainControl {
     private List<Estado> listEstado;
     private ArrayAdapter<Estado> adapterEstado;
     private Estado estado;
+    private EstadoDao estadoDao;
 
     public MainControl(Activity activity) {
         this.activity = activity;
+        estadoDao = new EstadoDao(activity);
         initComponents();
     }
 
@@ -42,14 +47,20 @@ public class MainControl {
     }
 
     private void configListView() {
-        listEstado = new ArrayList<>();
+        try {
+            listEstado = estadoDao.getDao().queryForAll();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         //listEstado.add(new Estado("Acre", "AC"));
         adapterEstado = new ArrayAdapter<>(activity, android.R.layout.simple_list_item_1, listEstado);
         //para spinner tem um R.layout.spinner.
         lvEstado.setAdapter(adapterEstado);
         cliqueCurto();
         cliqueLongo();
+        atualizarContador();
     }
+
 
     private void cliqueLongo() {
         lvEstado.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
@@ -117,8 +128,14 @@ public class MainControl {
         alerta.setPositiveButton("Confirmar", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int which) {
-                excluirEstadoLv(e);
-                atualizarContador();
+                try {
+                    if(estadoDao.getDao().delete(estado)>0) {
+                        excluirEstadoLv(e);
+                        atualizarContador();
+                    }
+                } catch (SQLException e1) {
+                    e1.printStackTrace();
+                }
                 estado = null;
             }
         });
@@ -144,20 +161,6 @@ public class MainControl {
         alerta.show();
     }
 
-    public void salvarAction(){
-        if(estado== null){
-            Estado e = getDadosForm();
-            addEstadoLv(e);
-            atualizarContador();
-            ordenarLista();
-        }else{
-            Estado e = getDadosForm();
-            atualizarEstado(e);
-            ordenarLista();
-        }
-        estado = null;
-    }
-
     private void ordenarLista(){
         adapterEstado.sort(new Comparator<Estado>() {
             @Override
@@ -165,8 +168,58 @@ public class MainControl {
                 return estado1.getNome().compareTo(estado2.getNome());
             }
         });
-
     }
 
+    public void salvarAction(){
 
+        if(estado==null){
+            estado = getDadosForm();
+        }else {
+            Estado e = getDadosForm();
+              estado.setNome(e.getNome());
+              estado.setSigla(e.getSigla());
+        }
+       Dao.CreateOrUpdateStatus res;
+            try {
+                res = estadoDao.getDao().createOrUpdate(estado);
+
+                if(res.isCreated()){
+                    addEstadoLv(estado);
+                    atualizarContador();
+                }else if(res.isUpdated()){
+
+                    atualizarEstado(estado);
+                }
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+
+
+//            if(estado== null){
+//            Estado e = getDadosForm();
+//
+//            try {
+//                if(estadoDao.getDao().create(e)>0) {
+//                    addEstadoLv(e);
+//                    atualizarContador();
+//                    ordenarLista();
+//                }
+//            } catch (SQLException e1) {
+//                e1.printStackTrace();
+//            }
+//        }else{
+//            Estado e = getDadosForm();
+//            estado.setNome(e.getNome());
+//            estado.setSigla(e.getSigla());
+//            try {
+//                if(estadoDao.getDao().update(estado)>0) {
+//                    atualizarEstado(e);
+//                    ordenarLista();
+//                }
+//            } catch (SQLException e1) {
+//                e1.printStackTrace();
+//            }
+//        }
+        estado = null;
+    }
 }
